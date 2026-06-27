@@ -19,6 +19,17 @@ KEY_WEIGHT            = 'core.tooltip.info.weight'
 ART_FACTOR_PREFIX     = 'artefact_properties.factor.'
 
 
+def _to_float(v) -> float:
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        try:
+            return float(v.replace(',', '.').strip())
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
 def _unit(formatted_ru: str) -> str:
     if not formatted_ru:
         return ''
@@ -56,8 +67,8 @@ def _parse_artifact(data: dict, stat_defs: dict) -> Artifact | None:
         if ART_FACTOR_PREFIX not in full_key:
             continue
         stat_key = full_key.split('.')[-1]
-        min_v = float(elem.get('min', 0) or 0)
-        max_v = float(elem.get('max', 0) or 0)
+        min_v = _to_float(elem.get('min', 0))
+        max_v = _to_float(elem.get('max', 0))
         props[stat_key] = (min_v, max_v)
 
         if stat_key not in stat_defs:
@@ -89,7 +100,7 @@ def _parse_container(data: dict) -> Container | None:
         if elem.get('type') != 'numeric':
             continue
         fk = elem.get('name', {}).get('key', '')
-        val = float(elem.get('value') or 0)
+        val = _to_float(elem.get('value'))
         if fk == CONT_KEY_SLOTS:
             slots = int(val)
         elif fk == CONT_KEY_EFFICIENCY:
@@ -117,7 +128,7 @@ def _parse_armor(data: dict, stat_defs: dict) -> Armor | None:
         etype = elem.get('type')
         name_obj = elem.get('name', {})
         fk = name_obj.get('key', '')
-        val = float(elem.get('value') or 0)
+        val = _to_float(elem.get('value'))
 
         if etype == 'numeric' and fk == KEY_WEIGHT:
             weight = val
