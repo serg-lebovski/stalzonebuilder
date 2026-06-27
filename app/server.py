@@ -2,7 +2,9 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 import pathlib
+import logging
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from http.cookies import SimpleCookie
 from urllib.parse import urlparse, parse_qs
@@ -12,6 +14,8 @@ from .calc import calculate_build
 from .optimizer import optimize, get_presets
 from .updater import get_catalog, force_update, last_update_ts
 from .models import Catalog
+
+log = logging.getLogger('server')
 
 
 def _web_dir() -> pathlib.Path:
@@ -38,7 +42,10 @@ def make_handler():
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
-            pass
+            pass  # handled by log_request
+
+        def log_request(self, code='-', size='-'):
+            log.info('%s %s → %s', self.command, self.path, code)
 
         # ── helpers ────────────────────────────────────────────────────────
 
@@ -52,6 +59,10 @@ def make_handler():
             self.wfile.write(body)
 
         def _send_error(self, msg, status=400):
+            if status >= 500:
+                log.error('HTTP %s: %s', status, msg)
+            elif status >= 400:
+                log.warning('HTTP %s %s: %s', status, self.path, msg)
             self._send_json({'error': msg}, status)
 
         def _send_redirect(self, location: str):
@@ -112,6 +123,8 @@ def make_handler():
             self.send_response(200)
             self.send_header('Content-Type', MIME.get(ext, 'application/octet-stream'))
             self.send_header('Content-Length', str(len(data)))
+            if ext in ('.js', '.css'):
+                self.send_header('Cache-Control', 'no-cache, must-revalidate')
             self.end_headers()
             self.wfile.write(data)
 
@@ -413,6 +426,7 @@ def make_handler():
                                              body.get('mode', 'avg'), float(body.get('max_hp', 100)))
                     self._send_json(result)
                 except Exception as e:
+                    log.exception('Ошибка /api/calc')
                     self._send_error(str(e))
                 return
 
@@ -435,6 +449,7 @@ def make_handler():
                     )
                     self._send_json(results)
                 except Exception as e:
+                    log.exception('Ошибка /api/optimize')
                     self._send_error(str(e))
                 return
 

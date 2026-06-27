@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       : 'Не удалось подключиться к серверу: ' + e.message;
     document.getElementById('error-text').innerHTML = msg;
     document.getElementById('loading-overlay').style.display = 'none';
-    document.getElementById('error-overlay').removeAttribute('hidden');
+    document.getElementById('error-overlay').style.display = 'flex';
   }
 });
 
