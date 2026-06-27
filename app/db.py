@@ -37,7 +37,7 @@ def _get_conn():
             raise RuntimeError('psycopg2 не установлен. Выполните: pip install psycopg2-binary')
         if not DB_URL:
             raise RuntimeError('DB_URL не задан. Установите переменную окружения DB_URL.')
-        _conn = psycopg2.connect(DB_URL)
+        _conn = psycopg2.connect(DB_URL, client_encoding='utf8')
         _conn.autocommit = True
     return _conn
 
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS user_inventory (
 CREATE TABLE IF NOT EXISTS user_builds (
     id         SERIAL PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name       TEXT NOT NULL DEFAULT 'Сборка',
+    name       TEXT NOT NULL DEFAULT '',
     data       JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
