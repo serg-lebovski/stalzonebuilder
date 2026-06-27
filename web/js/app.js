@@ -25,14 +25,21 @@ const S = {
 
 /* ═══════════════════ API ═══════════════════ */
 const api = {
-  async get(url)  { const r = await fetch(url); return r.json(); },
+  async get(url) {
+    const r = await fetch(url);
+    const data = await r.json();
+    if (!r.ok) throw Object.assign(new Error(data.error || r.statusText), { status: r.status, data });
+    return data;
+  },
   async post(url, body) {
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return r.json();
+    const data = await r.json();
+    if (!r.ok) throw Object.assign(new Error(data.error || r.statusText), { status: r.status, data });
+    return data;
   },
 };
 
@@ -43,24 +50,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Check auth first
     const status = await api.get('/api/status').catch(() => null);
-    if (status && !status.user) {
-      // No user — redirect to login (if DB mode is active, server returns 401 on /api/inventory)
+    if (!status || !status.user) {
       window.location.href = '/login';
       return;
     }
 
     // Show user menu
-    if (status?.user) {
-      const menu = document.getElementById('user-menu');
-      menu.style.display = 'flex';
-      document.getElementById('user-name').textContent = status.user.username;
-      if (status.user.is_admin) {
-        document.getElementById('admin-link').style.display = '';
-      }
+    const menu = document.getElementById('user-menu');
+    menu.style.display = 'flex';
+    document.getElementById('user-name').textContent = status.user.username;
+    if (status.user.is_admin) {
+      document.getElementById('admin-link').style.display = '';
     }
 
-    const [catalog, inventory, presets] = await Promise.all([
-      api.get('/api/catalog'),
+    // Load catalog with retry — server may still be downloading it from GitHub on first start
+    let catalog = null;
+    for (let attempt = 1; attempt <= 12; attempt++) {
+      try {
+        catalog = await api.get('/api/catalog');
+        break;
+      } catch (e) {
+        if (e.status === 503) {
+          setLoadingText(`Загрузка базы данных с GitHub... (${attempt * 5}с)`);
+          await new Promise(r => setTimeout(r, 5000));
+        } else {
+          throw e;
+        }
+      }
+    }
+    if (!catalog) throw new Error('Каталог не загрузился за 60 секунд');
+
+    setLoadingText('Загрузка инвентаря...');
+    const [inventory, presets] = await Promise.all([
       api.get('/api/inventory'),
       api.get('/api/presets'),
     ]);
@@ -80,7 +101,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('app').style.display = 'block';
   } catch (e) {
     console.error(e);
-    document.getElementById('error-text').textContent = 'Не удалось подключиться к серверу: ' + e.message;
+    const msg = e.status === 401
+      ? 'Сессия истекла. <a href="/login">Войдите снова</a>.'
+      : 'Не удалось подключиться к серверу: ' + e.message;
+    document.getElementById('error-text').innerHTML = msg;
     document.getElementById('loading-overlay').style.display = 'none';
     document.getElementById('error-overlay').removeAttribute('hidden');
   }
