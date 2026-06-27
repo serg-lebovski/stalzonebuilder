@@ -6,12 +6,39 @@ import threading
 import time
 import argparse
 import logging
+import logging.handlers
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
-    datefmt='%H:%M:%S',
-)
+
+def _setup_logging():
+    fmt = logging.Formatter(
+        '%(asctime)s %(levelname)-8s %(name)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+
+    # Console / journald
+    sh = logging.StreamHandler(sys.stdout)
+    sh.setFormatter(fmt)
+    root.addHandler(sh)
+
+    # Rotating file log (works even without journald access)
+    log_dir = os.environ.get('LOG_DIR', '/var/log/stalzonebuilder')
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        fh = logging.handlers.RotatingFileHandler(
+            os.path.join(log_dir, 'app.log'),
+            maxBytes=5 * 1024 * 1024,   # 5 MB
+            backupCount=5,
+            encoding='utf-8',
+        )
+        fh.setFormatter(fmt)
+        root.addHandler(fh)
+    except OSError:
+        pass  # Can't write log file — stderr is enough
+
+
+_setup_logging()
 log = logging.getLogger('main')
 
 
