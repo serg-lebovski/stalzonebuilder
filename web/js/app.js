@@ -39,14 +39,33 @@ const api = {
 /* ═══════════════════ INIT ═══════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    setLoadingText('Загрузка базы данных...');
+    setLoadingText('Загрузка данных...');
+
+    // Check auth first
+    const status = await api.get('/api/status').catch(() => null);
+    if (status && !status.user) {
+      // No user — redirect to login (if DB mode is active, server returns 401 on /api/inventory)
+      window.location.href = '/login';
+      return;
+    }
+
+    // Show user menu
+    if (status?.user) {
+      const menu = document.getElementById('user-menu');
+      menu.style.display = 'flex';
+      document.getElementById('user-name').textContent = status.user.username;
+      if (status.user.is_admin) {
+        document.getElementById('admin-link').style.display = '';
+      }
+    }
+
     const [catalog, inventory, presets] = await Promise.all([
       api.get('/api/catalog'),
       api.get('/api/inventory'),
       api.get('/api/presets'),
     ]);
-    S.catalog   = catalog;
-    S.inventory = inventory;
+    S.catalog     = catalog;
+    S.inventory   = inventory;
     S.opt.presets = presets;
 
     initTabs();

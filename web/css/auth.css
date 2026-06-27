@@ -1,0 +1,122 @@
+/* ── Auth / Admin pages ────────────────────────────────────────── */
+body.auth-page {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px 16px;
+  background: var(--bg);
+}
+
+.auth-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px 32px 28px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow);
+}
+.auth-box.wide { max-width: 640px; }
+
+.auth-logo {
+  display: flex; align-items: center; gap: 8px;
+  justify-content: center; margin-bottom: 20px;
+  font-size: 20px; font-weight: 700;
+}
+.auth-title {
+  text-align: center; font-size: 18px; color: var(--accent);
+  margin-bottom: 20px; font-weight: 700;
+}
+
+.auth-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; font-size: 13px;
+}
+.auth-nav a { color: var(--accent); }
+.auth-user  { color: var(--text-dim); }
+
+.auth-error {
+  background: rgba(239,83,80,.12); border: 1px solid var(--red);
+  border-radius: var(--radius-sm); padding: 8px 12px;
+  color: var(--red); font-size: 13px; margin-bottom: 14px;
+  line-height: 1.5;
+}
+.auth-success {
+  background: rgba(76,175,80,.12); border: 1px solid var(--green);
+  border-radius: var(--radius-sm); padding: 8px 12px;
+  color: var(--green); font-size: 13px; margin-bottom: 14px;
+}
+
+.auth-form {
+  display: flex; flex-direction: column; gap: 14px;
+}
+.auth-form label {
+  display: flex; flex-direction: column; gap: 5px;
+}
+.auth-form label span {
+  font-size: 12px; color: var(--text-dim); font-weight: 600;
+}
+.auth-form label small { color: var(--border); font-weight: 400; }
+.auth-form input[type=text],
+.auth-form input[type=password],
+.auth-form input[type=email] {
+  padding: 9px 12px;
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  outline: none; transition: border-color .15s;
+}
+.auth-form input:focus { border-color: var(--accent); }
+
+.btn-auth {
+  padding: 10px 20px; background: var(--accent); color: #000;
+  border: none; border-radius: var(--radius-sm); cursor: pointer;
+  font-weight: 700; font-size: 14px; transition: background .15s;
+  margin-top: 6px;
+}
+.btn-auth:hover { background: var(--accent2); }
+.btn-auth.btn-sm { padding: 6px 16px; font-size: 13px; margin-top: 0; }
+
+.auth-link {
+  text-align: center; margin-top: 18px;
+  font-size: 13px; color: var(--text-dim);
+}
+.auth-link a { color: var(--accent); }
+
+/* Settings sections */
+.settings-section {
+  margin-top: 24px; padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.settings-section:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+.settings-section h3 {
+  font-size: 14px; color: var(--accent);
+  text-transform: uppercase; letter-spacing: .6px;
+  margin-bottom: 14px;
+}
+.settings-hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
+/* Toggle */
+.toggle-form { display: flex; flex-direction: column; gap: 12px; }
+.toggle-label {
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer; font-size: 13px; color: var(--text);
+}
+.toggle-label input[type=checkbox] { accent-color: var(--accent); width: 18px; height: 18px; }
+
+/* User list */
+.user-list { display: flex; flex-direction: column; gap: 6px; }
+.user-row {
+  display: grid; grid-template-columns: 1fr auto auto;
+  align-items: center; gap: 10px;
+  background: var(--card); border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+.user-name { font-size: 13px; font-weight: 600; }
+.user-date { font-size: 11px; color: var(--text-dim); }
+.btn-del {
+  padding: 3px 10px; background: rgba(239,83,80,.15);
+  border: 1px solid var(--red); border-radius: var(--radius-sm);
+  color: var(--red); cursor: pointer; font-size: 11px;
+}
+.btn-del:hover { background: var(--red); color: #fff; }

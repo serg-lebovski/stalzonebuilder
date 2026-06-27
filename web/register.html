@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Регистрация — StalZone Builder</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body class="auth-page">
+<div class="auth-box">
+  <div class="auth-logo">
+    <span class="logo-icon">☢</span>
+    <span class="logo-text">StalZone <span class="logo-accent">Builder</span></span>
+  </div>
+  <h2 class="auth-title">Регистрация</h2>
+  <div class="auth-error" id="err">{{error}}</div>
+  <form method="POST" action="/register" class="auth-form">
+    <label>
+      <span>Логин <small>(мин. 3 символа)</small></span>
+      <input type="text" name="username" autocomplete="username" minlength="3" required autofocus>
+    </label>
+    <label>
+      <span>Пароль <small>(мин. 6 символов)</small></span>
+      <input type="password" name="password" autocomplete="new-password" minlength="6" required>
+    </label>
+    <button type="submit" class="btn-auth">Создать аккаунт</button>
+  </form>
+  <p class="auth-link">Уже есть аккаунт? <a href="/login">Войти</a></p>
+</div>
+<script>
+  const e = document.getElementById('err');
+  if (!e.textContent.trim()) e.style.display = 'none';
+</script>
+</body>
+</html>

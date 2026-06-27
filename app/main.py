@@ -5,67 +5,67 @@ import webbrowser
 import threading
 import time
 import argparse
+import logging
 
-from .data_loader import load_catalog
-from . import server as srv
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+    datefmt='%H:%M:%S',
+)
+log = logging.getLogger('main')
 
 
 def main():
     parser = argparse.ArgumentParser(description='StalZone Builder')
     parser.add_argument('--server', action='store_true',
-                        help='Server mode: bind to 0.0.0.0, do not open browser')
-    parser.add_argument('--port', type=int, default=0,
-                        help='Port to listen on (default: auto)')
-    parser.add_argument('--host', default=None,
-                        help='Host to bind to (default: 127.0.0.1 or 0.0.0.0 in server mode)')
-    parser.add_argument('--max-hp', type=float, default=100.0,
-                        help='Base max HP for Effective HP formula (default: 100)')
+                        help='Режим сервера: bind 0.0.0.0, не открывать браузер')
+    parser.add_argument('--port', type=int, default=0)
+    parser.add_argument('--host', default=None)
     args = parser.parse_args()
 
     server_mode = args.server or os.environ.get('SERVER_MODE', '').lower() in ('1', 'true', 'yes')
     host = args.host or ('0.0.0.0' if server_mode else '127.0.0.1')
     port = args.port or int(os.environ.get('PORT', 0))
 
-    try:
-        catalog = load_catalog()
-    except ConnectionError as e:
-        print(f'\nОШИБКА: {e}')
-        print('Проверьте подключение к интернету и перезапустите приложение.')
-        if not server_mode:
-            # Show error page in browser
-            _show_error_page(str(e))
+    # Init DB if configured
+    db_url = os.environ.get('DB_URL', '')
+    if db_url:
+        log.info('Подключение к PostgreSQL...')
+        try:
+            from . import db
+            db.init_db()
+            log.info('База данных инициализирована.')
+        except Exception as e:
+            log.error(f'Ошибка подключения к БД: {e}')
+            sys.exit(1)
+
+    # Start catalog updater (background thread)
+    from .updater import start_background_updater, get_catalog
+    start_background_updater()
+
+    # Wait for first catalog load (up to 60s)
+    log.info('Ожидание загрузки каталога...')
+    for _ in range(120):
+        if get_catalog() is not None:
+            break
+        time.sleep(0.5)
+    else:
+        log.error('Каталог не загрузился за 60 секунд. Проверьте интернет-соединение.')
         sys.exit(1)
 
+    from .server import run, find_free_port
     if port == 0:
-        port = srv.find_free_port(8080)
-
-    url = f'http://127.0.0.1:{port}' if host == '0.0.0.0' else f'http://{host}:{port}'
+        port = find_free_port(8080)
 
     if not server_mode:
-        # Open browser slightly after server starts
+        url = f'http://127.0.0.1:{port}'
         def open_browser():
             time.sleep(0.8)
             webbrowser.open(url)
         threading.Thread(target=open_browser, daemon=True).start()
-        print(f'Открываю браузер: {url}')
-    else:
-        print(f'Сервер запущен: http://{host}:{port}')
-        print('Нажмите Ctrl+C для остановки.')
+        log.info(f'Открываю браузер: {url}')
 
-    srv.run(catalog, host=host, port=port)
-
-
-def _show_error_page(msg: str):
-    """Write a minimal error HTML and open it in browser."""
-    import pathlib, tempfile
-    html = f"""<!DOCTYPE html><html lang="ru"><body style="background:#0f0f1a;color:#e0e0e0;font-family:sans-serif;padding:40px">
-<h1 style="color:#ef5350">Ошибка загрузки данных</h1>
-<p>{msg}</p>
-<p>Проверьте подключение к интернету и перезапустите приложение.</p>
-</body></html>"""
-    tmp = pathlib.Path(tempfile.gettempdir()) / 'stalzone_error.html'
-    tmp.write_text(html, encoding='utf-8')
-    webbrowser.open(tmp.as_uri())
+    run(host=host, port=port)
 
 
 if __name__ == '__main__':

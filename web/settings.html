@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Настройки — StalZone Builder</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body class="auth-page">
+<div class="auth-box wide">
+  <div class="auth-logo">
+    <span class="logo-icon">☢</span>
+    <span class="logo-text">StalZone <span class="logo-accent">Builder</span></span>
+  </div>
+  <div class="auth-nav">
+    <a href="/">← Назад</a>
+    <span class="auth-user">{{username}}</span>
+    <a href="/logout">Выйти</a>
+  </div>
+  <h2 class="auth-title">Настройки</h2>
+
+  <div class="auth-error"   id="err">{{error}}</div>
+  <div class="auth-success" id="ok">{{success}}</div>
+
+  <div class="settings-section">
+    <h3>Смена пароля</h3>
+    <form method="POST" action="/settings/password" class="auth-form">
+      <label>
+        <span>Текущий пароль</span>
+        <input type="password" name="old_password" required>
+      </label>
+      <label>
+        <span>Новый пароль <small>(мин. 6 символов)</small></span>
+        <input type="password" name="new_password" minlength="6" required>
+      </label>
+      <button type="submit" class="btn-auth">Сохранить</button>
+    </form>
+  </div>
+</div>
+<script>
+  document.getElementById('err').textContent.trim() || (document.getElementById('err').style.display='none');
+  document.getElementById('ok').textContent.trim()  || (document.getElementById('ok').style.display='none');
+</script>
+</body>
+</html>

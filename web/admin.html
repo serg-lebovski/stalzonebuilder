@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Администрирование — StalZone Builder</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body class="auth-page">
+<div class="auth-box wide">
+  <div class="auth-logo">
+    <span class="logo-icon">☢</span>
+    <span class="logo-text">StalZone <span class="logo-accent">Builder</span> <span style="color:var(--red);font-size:13px">ADMIN</span></span>
+  </div>
+  <div class="auth-nav">
+    <a href="/">← Приложение</a>
+    <span class="auth-user">{{username}}</span>
+    <a href="/logout">Выйти</a>
+  </div>
+
+  <div class="auth-error"   id="err">{{error}}</div>
+  <div class="auth-success" id="ok">{{success}}</div>
+
+  <!-- Registration toggle -->
+  <div class="settings-section">
+    <h3>Настройки регистрации</h3>
+    <form method="POST" action="/admin/toggle-registration" class="toggle-form">
+      <label class="toggle-label">
+        <input type="checkbox" name="enabled" id="reg-toggle" {{reg_open}}>
+        <span class="toggle-track"></span>
+        <span>Разрешить регистрацию новых пользователей</span>
+      </label>
+      <button type="submit" class="btn-auth btn-sm">Сохранить</button>
+    </form>
+    <script>
+      document.querySelector('.toggle-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const val = document.getElementById('reg-toggle').checked ? 'true' : 'false';
+        fetch('/admin/toggle-registration', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({value: val})
+        }).then(r => r.json()).then(d => {
+          document.getElementById('ok').textContent = 'Сохранено';
+          document.getElementById('ok').style.display = '';
+          setTimeout(() => document.getElementById('ok').style.display = 'none', 2000);
+        });
+      });
+    </script>
+  </div>
+
+  <!-- Catalog refresh -->
+  <div class="settings-section">
+    <h3>База данных артефактов</h3>
+    <p class="settings-hint">Данные автоматически обновляются раз в 24 часа с GitHub EXBO-Studio.</p>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+      <button class="btn-auth btn-sm" id="refresh-btn">🔄 Обновить сейчас</button>
+      <span id="refresh-status" style="font-size:13px;color:var(--text-dim)"></span>
+    </div>
+    <script>
+      document.getElementById('refresh-btn').addEventListener('click', function() {
+        const btn = this; const st = document.getElementById('refresh-status');
+        btn.disabled = true; st.textContent = 'Загрузка...';
+        fetch('/api/catalog/refresh', {method:'POST'}).then(r=>r.json()).then(d => {
+          btn.disabled = false;
+          if (d.ok) {
+            st.style.color = 'var(--green)';
+            st.textContent = `✓ Обновлено: ${d.artifacts} арт, ${d.containers} конт, ${d.armors} костюмов`;
+          } else {
+            st.style.color = 'var(--red)';
+            st.textContent = '✗ Ошибка обновления';
+          }
+        });
+      });
+    </script>
+  </div>
+
+  <!-- User management -->
+  <div class="settings-section">
+    <h3>Пользователи</h3>
+    <div id="user-list" class="user-list">
+      <div style="color:var(--text-dim);font-size:13px">Загрузка...</div>
+    </div>
+    <script>
+      fetch('/api/users').then(r=>r.json()).then(users => {
+        const el = document.getElementById('user-list');
+        el.innerHTML = users.map(u => `
+          <div class="user-row">
+            <span class="user-name">${u.username}${u.is_admin ? ' 👑' : ''}</span>
+            <span class="user-date">${new Date(u.created_at).toLocaleDateString('ru')}</span>
+            ${!u.is_admin ? `<button class="btn-del" data-id="${u.id}">Удалить</button>` : '<span></span>'}
+          </div>`).join('');
+        el.querySelectorAll('.btn-del').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (!confirm('Удалить пользователя?')) return;
+            fetch('/admin/delete-user', {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({user_id: parseInt(btn.dataset.id)})
+            }).then(()=>location.reload());
+          });
+        });
+      }).catch(()=>{
+        document.getElementById('user-list').textContent = 'Нет подключения к БД';
+      });
+    </script>
+  </div>
+</div>
+<script>
+  document.getElementById('err').textContent.trim() || (document.getElementById('err').style.display='none');
+  document.getElementById('ok').textContent.trim()  || (document.getElementById('ok').style.display='none');
+</script>
+</body>
+</html>

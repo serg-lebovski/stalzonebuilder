@@ -83,6 +83,19 @@ header {
 
 .catalog-info { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
 
+.user-menu { display: flex; align-items: center; gap: 10px; }
+.user-name-badge {
+  font-size: 12px; color: var(--accent); font-weight: 700;
+  background: rgba(240,165,0,.12); padding: 3px 10px; border-radius: 12px;
+}
+.user-link {
+  font-size: 12px; color: var(--text-dim); white-space: nowrap;
+  transition: color .15s;
+}
+.user-link:hover { color: var(--text); }
+.logout-link:hover { color: var(--red); }
+.admin-link { color: var(--red) !important; }
+
 /* ═══════════════════ LAYOUT ═══════════════════ */
 .tab-content { display: none; padding: 16px 20px; }
 .tab-content.active { display: block; }
