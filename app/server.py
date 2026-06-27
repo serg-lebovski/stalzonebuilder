@@ -5,6 +5,8 @@ import sys
 import time
 import pathlib
 import logging
+import subprocess
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from http.cookies import SimpleCookie
 from urllib.parse import urlparse, parse_qs
@@ -16,6 +18,34 @@ from .updater import get_catalog, force_update, last_update_ts
 from .models import Catalog
 
 log = logging.getLogger('server')
+
+_APP_DIR = pathlib.Path(__file__).parent.parent
+
+
+def _git(*args: str) -> tuple[str, str, int]:
+    """Run a git command in the app root. Returns (stdout, stderr, returncode)."""
+    try:
+        r = subprocess.run(
+            ['git'] + list(args),
+            cwd=str(_APP_DIR),
+            capture_output=True, text=True, timeout=60,
+        )
+        return r.stdout.strip(), r.stderr.strip(), r.returncode
+    except Exception as e:
+        return '', str(e), 1
+
+
+def _schedule_restart(delay: float = 2.0):
+    """Restart the service after a short delay (so the HTTP response is sent first)."""
+    def _do():
+        time.sleep(delay)
+        log.info('Перезапуск сервиса для применения обновления...')
+        ret = subprocess.run(['systemctl', 'restart', 'stalzonebuilder']).returncode
+        if ret != 0:
+            # Fallback: replace current process in-place
+            log.info('systemctl недоступен, перезапускаю процесс через execv')
+            os.execv(sys.executable, sys.argv)
+    threading.Thread(target=_do, daemon=True, name='restart-thread').start()
 
 
 def _web_dir() -> pathlib.Path:
@@ -202,6 +232,21 @@ def make_handler():
             # ── API ────────────────────────────────────────────────────────
             catalog = get_catalog()
 
+            if p == '/api/app/version':
+                u = self._require_admin()
+                if not u: return
+                stdout, _, code = _git('log', '-1', '--format=%H|%h|%s|%ci')
+                if code != 0 or not stdout:
+                    self._send_json({'error': 'git не инициализирован'}); return
+                parts = stdout.split('|', 3)
+                self._send_json({
+                    'hash': parts[0] if len(parts) > 0 else '',
+                    'hash_short': parts[1] if len(parts) > 1 else '',
+                    'message': parts[2] if len(parts) > 2 else '',
+                    'date': (parts[3][:10] if len(parts) > 3 else ''),
+                })
+                return
+
             if p == '/api/status':
                 u = self._current_user()
                 self._send_json({
@@ -381,6 +426,29 @@ def make_handler():
                     'armors': len(catalog.armors) if catalog else 0,
                     'last_update': last_update_ts(),
                 })
+                return
+
+            if p == '/api/app/update-check':
+                u = self._require_admin()
+                if not u: return
+                _, err, code = _git('fetch', 'origin')
+                if code != 0:
+                    self._send_json({'error': f'git fetch не удался: {err}'}); return
+                stdout, _, _ = _git('log', 'HEAD..origin/main', '--oneline')
+                commits = [l for l in stdout.splitlines() if l.strip()]
+                self._send_json({'behind': len(commits), 'commits': commits})
+                return
+
+            if p == '/api/app/update':
+                u = self._require_admin()
+                if not u: return
+                stdout, err, code = _git('pull', '--ff-only', 'origin', 'main')
+                if code != 0:
+                    log.error('git pull failed: %s', err)
+                    self._send_json({'error': f'git pull не удался: {err}'}); return
+                log.info('git pull OK: %s', stdout)
+                _schedule_restart(delay=2.0)
+                self._send_json({'ok': True, 'output': stdout})
                 return
 
             # ── User API ───────────────────────────────────────────────────

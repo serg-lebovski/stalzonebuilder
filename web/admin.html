@@ -76,6 +76,117 @@
     </script>
   </div>
 
+  <!-- App update -->
+  <div class="settings-section">
+    <h3>Обновление приложения</h3>
+    <p class="settings-hint">Обновляет код сервера из Git-репозитория и перезапускает сервис.</p>
+    <div id="app-version" style="font-size:13px;color:var(--text-dim);margin-bottom:12px">Загрузка версии...</div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <button class="btn-auth btn-sm" id="check-upd-btn">🔍 Проверить обновления</button>
+      <button class="btn-auth btn-sm" id="apply-upd-btn" style="display:none;background:var(--green);color:#000;border-color:var(--green)">⬆ Обновить и перезапустить</button>
+      <span id="upd-status" style="font-size:13px"></span>
+    </div>
+    <pre id="upd-changelog" style="margin:10px 0 0;font-size:12px;color:var(--text-dim);white-space:pre-wrap;display:none;background:var(--panel);padding:8px;border-radius:var(--radius-sm)"></pre>
+    <script>
+      (function() {
+        fetch('/api/app/version').then(r=>r.json()).then(d => {
+          const el = document.getElementById('app-version');
+          if (d.hash_short) {
+            el.textContent = 'Версия: ' + d.hash_short + ' · ' + d.message + ' · ' + d.date;
+          } else {
+            el.textContent = d.error || 'Версия недоступна (git не настроен)';
+          }
+        }).catch(() => {
+          document.getElementById('app-version').textContent = 'Нет данных о версии';
+        });
+
+        document.getElementById('check-upd-btn').addEventListener('click', function() {
+          const btn = this;
+          const st = document.getElementById('upd-status');
+          const applyBtn = document.getElementById('apply-upd-btn');
+          const changelog = document.getElementById('upd-changelog');
+          btn.disabled = true;
+          st.style.color = 'var(--text-dim)';
+          st.textContent = 'Проверяю...';
+          applyBtn.style.display = 'none';
+          changelog.style.display = 'none';
+          fetch('/api/app/update-check', {method:'POST'}).then(r=>r.json()).then(d => {
+            btn.disabled = false;
+            if (d.error) {
+              st.style.color = 'var(--red)';
+              st.textContent = '✗ ' + d.error;
+              return;
+            }
+            if (d.behind === 0) {
+              st.style.color = 'var(--green)';
+              st.textContent = '✓ Версия актуальна';
+            } else {
+              st.style.color = 'var(--accent)';
+              st.textContent = '↓ Доступно коммитов: ' + d.behind;
+              changelog.textContent = d.commits.join('\n');
+              changelog.style.display = '';
+              applyBtn.style.display = '';
+            }
+          }).catch(() => {
+            btn.disabled = false;
+            st.style.color = 'var(--red)';
+            st.textContent = '✗ Ошибка связи с сервером';
+          });
+        });
+
+        document.getElementById('apply-upd-btn').addEventListener('click', function() {
+          if (!confirm('Применить обновление?\nСервер перезапустится (~5 секунд).')) return;
+          const btn = this;
+          const checkBtn = document.getElementById('check-upd-btn');
+          const st = document.getElementById('upd-status');
+          btn.disabled = true;
+          checkBtn.disabled = true;
+          st.style.color = 'var(--text-dim)';
+          st.textContent = 'Применяю...';
+
+          function pollRestart() {
+            st.textContent = 'Перезапуск сервера...';
+            let tries = 0;
+            const iv = setInterval(() => {
+              tries++;
+              fetch('/api/app/version').then(r=>r.json()).then(v => {
+                clearInterval(iv);
+                st.style.color = 'var(--green)';
+                st.textContent = '✓ Обновлено: ' + (v.hash_short || '') + ' · ' + (v.message || '');
+                document.getElementById('app-version').textContent =
+                  'Версия: ' + v.hash_short + ' · ' + v.message + ' · ' + v.date;
+                btn.style.display = 'none';
+                document.getElementById('upd-changelog').style.display = 'none';
+                checkBtn.disabled = false;
+              }).catch(() => {
+                if (tries > 30) {
+                  clearInterval(iv);
+                  st.style.color = 'var(--red)';
+                  st.textContent = '✗ Сервер не ответил после перезапуска';
+                  checkBtn.disabled = false;
+                }
+              });
+            }, 1000);
+          }
+
+          fetch('/api/app/update', {method:'POST'}).then(r=>r.json()).then(d => {
+            if (d.error) {
+              btn.disabled = false;
+              checkBtn.disabled = false;
+              st.style.color = 'var(--red)';
+              st.textContent = '✗ ' + d.error;
+              return;
+            }
+            pollRestart();
+          }).catch(() => {
+            // Сервер перезапустился до отправки ответа — это норма
+            pollRestart();
+          });
+        });
+      })();
+    </script>
+  </div>
+
   <!-- User management -->
   <div class="settings-section">
     <h3>Пользователи</h3>
