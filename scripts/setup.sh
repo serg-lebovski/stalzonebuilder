@@ -20,9 +20,12 @@ echo "[1/6] Установка зависимостей..."
 apt-get update -q
 apt-get install -y -q python3 python3-pip git postgresql postgresql-contrib
 
-# ── psycopg2 ────────────────────────────────────────────────────
-echo "[2/6] Установка psycopg2..."
-pip3 install psycopg2-binary -q
+# ── Venv + psycopg2 ─────────────────────────────────────────────
+echo "[2/6] Создание виртуального окружения..."
+apt-get install -y -q python3-venv
+python3 -m venv /opt/szbuilder-venv
+/opt/szbuilder-venv/bin/pip install psycopg2-binary -q
+PYTHON_BIN="/opt/szbuilder-venv/bin/python3"
 
 # ── PostgreSQL ──────────────────────────────────────────────────
 echo "[3/6] Настройка PostgreSQL..."
@@ -62,7 +65,7 @@ WorkingDirectory=${APP_DIR}
 Environment="PORT=${PORT}"
 Environment="SERVER_MODE=1"
 Environment="DB_URL=${DB_URL}"
-ExecStart=/usr/bin/python3 -m app.main --server --port ${PORT}
+ExecStart=/opt/szbuilder-venv/bin/python3 -m app.main --server --port ${PORT}
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal

@@ -40,7 +40,7 @@ def main():
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     print(f'\n=== Подключение к {USER}@{HOST} ===')
     ssh.connect(HOST, username=USER, password=PASSWORD, timeout=15)
-    print('✓ Подключено\n')
+    print('OK Подключено\n')
 
     # Upload setup.sh and run it
     print('=== Загрузка setup.sh ===')
@@ -53,7 +53,8 @@ def main():
     sftp.close()
 
     print('=== Запуск установки (может занять 1-3 минуты) ===')
-    _, out = run(ssh, 'bash /tmp/setup_szb.sh 2>&1', get_out=True)
+    # Try with sudo if running as non-root
+    _, out = run(ssh, f'echo "{PASSWORD}" | sudo -S bash /tmp/setup_szb.sh 2>&1', get_out=True)
     print('\n' + out)
 
     ssh.close()
