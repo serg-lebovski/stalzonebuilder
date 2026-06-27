@@ -11,6 +11,7 @@ const S = {
     maxHp:       100,
     mode:        'avg',
   },
+  selects: { armor: null, container: null }, // searchable select controls
   picker: {
     slot:      -1,
     filter:    'all',
@@ -174,33 +175,113 @@ function getMode() {
   return document.querySelector('input[name="calc-mode"]:checked')?.value || 'avg';
 }
 
-/* ═══════════════════ BUILD TAB ═══════════════════ */
-function initBuildTab() {
-  // Populate armor select
-  const armorSel = document.getElementById('armor-select');
-  S.catalog.armors.forEach(a => {
-    const o = new Option(a.name + (a.weight ? ` (${a.weight}кг)` : ''), a.id);
-    armorSel.add(o);
+/* ═══════════════════ SEARCHABLE SELECT ═══════════════════ */
+function makeSearchSel({ wrapId, displayId, dropId, searchId, listId,
+                         getItems, emptyLabel, onSelect }) {
+  const wrap    = document.getElementById(wrapId);
+  const display = document.getElementById(displayId);
+  const drop    = document.getElementById(dropId);
+  const search  = document.getElementById(searchId);
+  const list    = document.getElementById(listId);
+  let currentId = null;
+
+  function renderList(q) {
+    const ql = q.toLowerCase();
+    const items = getItems().filter(it => !ql || it.label.toLowerCase().includes(ql));
+    let html = emptyLabel
+      ? `<div class="ssel-item" data-id="">${emptyLabel}</div>` : '';
+    html += items.map(it =>
+      `<div class="ssel-item${currentId === it.id ? ' active' : ''}" data-id="${it.id}">
+        <span class="ssel-item-label">${it.label}</span>
+        ${it.sub ? `<span class="ssel-item-sub">${it.sub}</span>` : ''}
+      </div>`
+    ).join('') || '<div class="ssel-empty">Ничего не найдено</div>';
+    list.innerHTML = html;
+    list.querySelectorAll('.ssel-item').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        const id = el.dataset.id || null;
+        setValue(id, /* fireEvent */ true);
+        close();
+      });
+    });
+  }
+
+  function open() {
+    search.value = '';
+    renderList('');
+    drop.hidden = false;
+    search.focus();
+    // Scroll active item into view
+    const active = list.querySelector('.ssel-item.active');
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }
+
+  function close() { drop.hidden = true; }
+
+  function setValue(id, fire = false) {
+    currentId = id || null;
+    const found = id ? getItems().find(x => x.id === id) : null;
+    display.textContent = found ? found.label : (emptyLabel || '—');
+    if (fire) onSelect(currentId);
+  }
+
+  display.addEventListener('click', () => drop.hidden ? open() : close());
+  display.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    if (e.key === 'Escape') close();
   });
-  armorSel.addEventListener('change', () => {
-    S.build.armorId = armorSel.value || null;
-    renderArmorMini();
-    triggerCalc();
+  search.addEventListener('input', () => renderList(search.value.trim()));
+  document.addEventListener('click', e => {
+    if (!wrap.contains(e.target)) close();
   });
 
-  // Populate container select
-  const contSel = document.getElementById('container-select');
-  S.catalog.containers.forEach(c => {
-    const o = new Option(`${c.name} [${c.slots} сл. · ${c.efficiency_pct}%]`, c.id);
-    contSel.add(o);
+  return { setValue };
+}
+
+/* ═══════════════════ BUILD TAB ═══════════════════ */
+function initBuildTab() {
+  // Searchable armor select
+  S.selects.armor = makeSearchSel({
+    wrapId:    'armor-ssel-wrap',
+    displayId: 'armor-ssel-display',
+    dropId:    'armor-ssel-drop',
+    searchId:  'armor-ssel-search',
+    listId:    'armor-ssel-list',
+    getItems:  () => S.catalog.armors.map(a => ({
+      id:    a.id,
+      label: a.name,
+      sub:   a.weight ? a.weight + ' кг' : '',
+    })),
+    emptyLabel: '— Без костюма —',
+    onSelect: id => {
+      S.build.armorId = id;
+      renderArmorMini();
+      triggerCalc();
+    },
   });
-  contSel.addEventListener('change', () => {
-    const c = S.catalog.containers.find(x => x.id === contSel.value);
-    S.build.containerId = contSel.value || null;
-    S.build.slots = c ? Array(c.slots).fill(null) : [];
-    renderContainerInfo(c);
-    renderSlots();
-    triggerCalc();
+
+  // Searchable container select
+  S.selects.container = makeSearchSel({
+    wrapId:    'cont-ssel-wrap',
+    displayId: 'cont-ssel-display',
+    dropId:    'cont-ssel-drop',
+    searchId:  'cont-ssel-search',
+    listId:    'cont-ssel-list',
+    getItems:  () => S.catalog.containers.map(c => ({
+      id:    c.id,
+      label: c.name,
+      sub:   `${c.slots} сл · ${c.efficiency_pct}%`,
+    })),
+    emptyLabel: null,
+    onSelect: id => {
+      const c = id ? S.catalog.containers.find(x => x.id === id) : null;
+      S.build.containerId = id;
+      S.build.slots = c ? Array(c.slots).fill(null) : [];
+      renderContainerInfo(c);
+      renderSlots();
+      triggerCalc();
+    },
   });
 
   // Mode radio
@@ -738,25 +819,20 @@ function renderOptResults(results) {
 }
 
 function applyBuild(result) {
-  // Switch to Build tab
   document.querySelector('.tab[data-tab="build"]').click();
 
-  // Set armor
-  const armorSel = document.getElementById('armor-select');
-  armorSel.value = result.armor?.id || '';
-  S.build.armorId = result.armor?.id || null;
+  const armorId = result.armor?.id || null;
+  S.build.armorId = armorId;
+  S.selects.armor.setValue(armorId);
   renderArmorMini();
 
-  // Set container
-  const contSel = document.getElementById('container-select');
-  contSel.value = result.container.id;
-  S.build.containerId = result.container.id;
-  const cont = S.catalog.containers.find(c => c.id === result.container.id);
+  const contId = result.container.id;
+  S.build.containerId = contId;
+  S.selects.container.setValue(contId);
+  const cont = S.catalog.containers.find(c => c.id === contId);
   renderContainerInfo(cont);
 
-  // Set artifacts
   S.build.slots = result.artifacts.map(a => a.id);
-  // Pad to container slots
   const slots = cont?.slots || 0;
   while (S.build.slots.length < slots) S.build.slots.push(null);
 

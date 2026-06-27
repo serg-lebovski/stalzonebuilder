@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>StalZone Builder</title>
-  <link rel="stylesheet" href="/css/app.css?v=4">
+  <link rel="stylesheet" href="/css/app.css?v=5">
 </head>
 <body>
 
@@ -59,9 +59,13 @@
         <div class="panel">
           <div class="panel-title">Костюм</div>
           <div class="selector-row">
-            <select id="armor-select">
-              <option value="">— Без костюма —</option>
-            </select>
+            <div class="ssel-wrap" id="armor-ssel-wrap">
+              <div class="ssel-display" id="armor-ssel-display" tabindex="0">— Без костюма —</div>
+              <div class="ssel-dropdown" id="armor-ssel-drop" hidden>
+                <input class="ssel-search" id="armor-ssel-search" type="search" placeholder="Поиск..." autocomplete="off">
+                <div class="ssel-list" id="armor-ssel-list"></div>
+              </div>
+            </div>
           </div>
           <div id="armor-stats-mini" class="mini-stats hidden"></div>
         </div>
@@ -69,9 +73,13 @@
         <div class="panel">
           <div class="panel-title">Контейнер</div>
           <div class="selector-row">
-            <select id="container-select">
-              <option value="">— Выберите контейнер —</option>
-            </select>
+            <div class="ssel-wrap" id="cont-ssel-wrap">
+              <div class="ssel-display" id="cont-ssel-display" tabindex="0">— Выберите контейнер —</div>
+              <div class="ssel-dropdown" id="cont-ssel-drop" hidden>
+                <input class="ssel-search" id="cont-ssel-search" type="search" placeholder="Поиск..." autocomplete="off">
+                <div class="ssel-list" id="cont-ssel-list"></div>
+              </div>
+            </div>
           </div>
           <div id="container-info" class="container-info hidden">
             <span id="cont-slots"></span>
@@ -203,6 +211,6 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=3"></script>
+<script src="/js/app.js?v=4"></script>
 </body>
 </html>
