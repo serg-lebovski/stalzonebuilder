@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.spec
+.env
+*.log
+
+# Research files
+listing.json
+cont.json
+armor.json
+art_gyn0.json
+
+# User data (stored in APPDATA on desktop)
+inventory.json
