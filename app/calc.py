@@ -25,16 +25,21 @@ def compute_effective_hp(
     return (max_hp + bullet) * (1.0 + vitality)
 
 
-def _art_props(art: Artifact, level: str | None, mode: str) -> dict:
-    """Select artifact props by per-artifact level or fallback global mode."""
-    if level == 'I':
-        return {k: v[0] for k, v in art.props.items()}
-    if level == 'III':
-        return art.max_props()
-    if level == 'II':
-        return art.avg_props()
-    # fallback to global mode
-    return art.max_props() if mode == 'max' else art.avg_props()
+ARTIFACT_LEVELS   = [0, 5, 10, 15]
+ARTIFACT_QUALITIES = [100, 115, 130, 145, 160, 175]
+ARMOR_QUALITIES    = [100, 115, 130, 145, 160, 175]
+
+
+def _art_props(art: Artifact, level: int | None, quality: int | None) -> dict:
+    """
+    Compute artifact props using level interpolation + quality multiplier.
+    level   : 0 / 5 / 10 / 15  (maps linearly to min..max range)
+    quality : 100 / 115 / 130 / 145 / 160 / 175  (percentage applied on top)
+    Defaults: level=15 (max stats), quality=100 (no extra bonus).
+    """
+    t = (level if level is not None else 15) / 15.0
+    q = (quality if quality is not None else 100) / 100.0
+    return {k: (mn + (mx - mn) * t) * q for k, (mn, mx) in art.props.items()}
 
 
 def calculate_build(
@@ -44,29 +49,33 @@ def calculate_build(
     stat_defs: dict,
     mode: str = 'avg',
     max_hp: float = 100.0,
-    artifact_levels: list[str] | None = None,
+    artifact_levels: list[int] | None = None,
+    artifact_qualities: list[int] | None = None,
+    armor_quality: int | None = None,
 ) -> dict:
     """
     Compute total stats and effective HP for a given build.
 
-    mode: global fallback ('avg'/'max') when artifact_levels not provided.
-    artifact_levels: per-artifact list of 'I'/'II'/'III'.
-    Returns:
-        {stats, effective_hp, meta}
+    artifact_levels   : per-artifact list of 0/5/10/15  (default 15)
+    artifact_qualities: per-artifact list of 100..175    (default 100)
+    armor_quality     : quality multiplier for armor (100..175, default 100)
+    mode              : legacy fallback for optimizer ('avg'/'max')
     """
     totals: dict[str, float] = {}
 
     if armor:
+        arm_q = (armor_quality if armor_quality is not None else 100) / 100.0
         for k, v in armor.stats.items():
-            totals[k] = totals.get(k, 0.0) + v
+            totals[k] = totals.get(k, 0.0) + v * arm_q
 
     eff = container.efficiency if container else 1.0
     slots = container.slots if container else 0
 
     chosen = artifacts[:slots]
     for i, art in enumerate(chosen):
-        level = artifact_levels[i] if artifact_levels and i < len(artifact_levels) else None
-        props = _art_props(art, level, mode)
+        level   = artifact_levels[i]   if artifact_levels   and i < len(artifact_levels)   else None
+        quality = artifact_qualities[i] if artifact_qualities and i < len(artifact_qualities) else None
+        props   = _art_props(art, level, quality)
         for k, v in props.items():
             totals[k] = totals.get(k, 0.0) + v * eff
 

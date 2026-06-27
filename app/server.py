@@ -490,9 +490,14 @@ def make_handler():
                     armor     = arm_by_id.get(body.get('armor_id'))     if body.get('armor_id')     else None
                     container = cont_by_id.get(body.get('container_id')) if body.get('container_id') else None
                     artifacts = [art_by_id[i] for i in body.get('artifact_ids', []) if i in art_by_id]
-                    result = calculate_build(armor, container, artifacts, catalog.stat_defs,
-                                             body.get('mode', 'avg'), float(body.get('max_hp', 100)),
-                                             body.get('artifact_levels', None))
+                    result = calculate_build(
+                        armor, container, artifacts, catalog.stat_defs,
+                        body.get('mode', 'avg'),
+                        float(body.get('max_hp', 100)),
+                        artifact_levels    = body.get('artifact_levels'),
+                        artifact_qualities = body.get('artifact_qualities'),
+                        armor_quality      = body.get('armor_quality'),
+                    )
                     self._send_json(result)
                 except Exception as e:
                     log.exception('Ошибка /api/calc')

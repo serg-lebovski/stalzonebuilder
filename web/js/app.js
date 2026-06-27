@@ -1,15 +1,19 @@
 'use strict';
 
 /* ═══════════════════ STATE ═══════════════════ */
+const ART_LEVELS   = [0, 5, 10, 15];
+const ART_QUALITIES = [100, 115, 130, 145, 160, 175];
+
 const S = {
   catalog: null,       // { artifacts, containers, armors, stat_defs }
   inventory: null,     // { artifact_ids, container_ids, armor_ids }
   build: {
-    armorId:     null,
-    containerId: null,
-    slots:       [],   // array of artifact ids (or null)
-    maxHp:       100,
-    mode:        'avg',
+    armorId:      null,
+    armorQuality: 100,
+    containerId:  null,
+    slots:        [],   // array of {id, level, quality} or null
+    maxHp:        100,
+    mode:         'avg',
   },
   selects: { armor: null, container: null }, // searchable select controls
   picker: {
@@ -148,9 +152,9 @@ function colorClass(color) {
   return 'color-' + (color || 'DEFAULT');
 }
 
-function artShortStats(art, level) {
+function artShortStats(art, level, quality) {
   const sd = S.catalog.stat_defs;
-  const props = propsForLevel(art, level);
+  const props = propsForLQ(art, level, quality);
   return Object.entries(props)
     .filter(([k]) => sd[k])
     .slice(0, 3)
@@ -175,10 +179,15 @@ function minProps(art) {
   for (const [k, r] of Object.entries(art.props)) out[k] = r.min;
   return out;
 }
-function propsForLevel(art, level) {
-  if (level === 'I')   return minProps(art);
-  if (level === 'III') return maxProps(art);
-  return avgProps(art);
+
+// level: 0/5/10/15, quality: 100/115/130/145/160/175
+function propsForLQ(art, level, quality) {
+  const t = (level ?? 15) / 15;
+  const q = (quality ?? 100) / 100;
+  const out = {};
+  for (const [k, r] of Object.entries(art.props))
+    out[k] = (r.min + (r.max - r.min) * t) * q;
+  return out;
 }
 
 function getMode() {
@@ -276,6 +285,16 @@ function initBuildTab() {
     },
   });
 
+  // Armor quality selector
+  document.getElementById('armor-quality-sel').querySelectorAll('.aq-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      S.build.armorQuality = parseInt(btn.dataset.q);
+      document.getElementById('armor-quality-sel').querySelectorAll('.aq-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      triggerCalc();
+    });
+  });
+
   // Searchable container select
   S.selects.container = makeSearchSel({
     wrapId:    'cont-ssel-wrap',
@@ -321,11 +340,12 @@ function renderArmorMini() {
   const a = S.catalog.armors.find(x => x.id === S.build.armorId);
   if (!a) return;
   const sd = S.catalog.stat_defs;
+  const q = (S.build.armorQuality ?? 100) / 100;
   const chips = Object.entries(a.stats)
     .filter(([, v]) => v !== 0)
     .map(([k, v]) => {
       const d = sd[k];
-      return `<span class="mini-stat-chip">${d ? d.name_ru : k}: ${fmtVal(v, d?.unit, d?.direction)}</span>`;
+      return `<span class="mini-stat-chip">${d ? d.name_ru : k}: ${fmtVal(v * q, d?.unit, d?.direction)}</span>`;
     }).join('');
   el.innerHTML = chips;
   el.classList.remove('hidden');
@@ -356,14 +376,20 @@ function renderSlots() {
     div.className = 'slot ' + (art ? 'filled ' + colorClass(art.color) : '');
     div.dataset.slot = i;
     if (art) {
+      const quality = slotData?.quality ?? 100;
       div.innerHTML = `
         <button class="slot-remove" data-slot="${i}" title="Убрать">✕</button>
         ${art.icon_url ? `<img class="slot-icon" src="${art.icon_url}" alt="" onerror="this.hidden=true">` : ''}
         <div class="slot-art-name">${art.name}</div>
-        <div class="slot-art-stats">${artShortStats(art, level)}</div>
+        <div class="slot-art-stats">${artShortStats(art, level, quality)}</div>
         <div class="slot-level-sel">
-          ${['I','II','III'].map(lvl =>
-            `<button class="slvl${level === lvl ? ' active' : ''}" data-slot="${i}" data-level="${lvl}">${lvl}</button>`
+          ${ART_LEVELS.map(lvl =>
+            `<button class="slvl${level === lvl ? ' active' : ''}" data-slot="${i}" data-field="level" data-val="${lvl}">${lvl}</button>`
+          ).join('')}
+        </div>
+        <div class="slot-quality-sel">
+          ${ART_QUALITIES.map(q =>
+            `<button class="slvl squal${quality === q ? ' active' : ''}" data-slot="${i}" data-field="quality" data-val="${q}">${q}%</button>`
           ).join('')}
         </div>`;
       div.querySelector('.slot-remove').addEventListener('click', e => {
@@ -376,7 +402,9 @@ function renderSlots() {
         btn.addEventListener('click', e => {
           e.stopPropagation();
           const si = parseInt(btn.dataset.slot);
-          S.build.slots[si] = { id: S.build.slots[si].id, level: btn.dataset.level };
+          const field = btn.dataset.field;
+          const val = parseInt(btn.dataset.val);
+          S.build.slots[si] = { ...S.build.slots[si], [field]: val };
           renderSlots();
           triggerCalc();
         });
@@ -394,13 +422,15 @@ function renderSlots() {
 }
 
 async function triggerCalc() {
-  const filled = S.build.slots.filter(Boolean); // [{id, level}]
+  const filled = S.build.slots.filter(Boolean); // [{id, level, quality}]
   const body = {
-    armor_id:        S.build.armorId     || null,
-    container_id:    S.build.containerId || null,
-    artifact_ids:    filled.map(s => s.id),
-    artifact_levels: filled.map(s => s.level),
-    max_hp:          S.build.maxHp,
+    armor_id:           S.build.armorId     || null,
+    armor_quality:      S.build.armorQuality,
+    container_id:       S.build.containerId || null,
+    artifact_ids:       filled.map(s => s.id),
+    artifact_levels:    filled.map(s => s.level   ?? 15),
+    artifact_qualities: filled.map(s => s.quality ?? 100),
+    max_hp:             S.build.maxHp,
   };
   const result = await api.post('/api/calc', body);
   renderStats(result);
@@ -520,7 +550,7 @@ function renderPickerList() {
 
   const list = document.getElementById('picker-list');
   list.innerHTML = items.map(a => {
-    const props = avgProps(a);
+    const props = propsForLQ(a, 15, 100);
     const statsHtml = Object.entries(props)
       .filter(([k]) => sd[k])
       .map(([k, v]) => {
@@ -540,7 +570,7 @@ function renderPickerList() {
 
   list.querySelectorAll('.picker-item').forEach(el => {
     el.addEventListener('click', () => {
-      S.build.slots[S.picker.slot] = { id: el.dataset.id, level: 'II' };
+      S.build.slots[S.picker.slot] = { id: el.dataset.id, level: 15, quality: 100 };
       closePicker();
       renderSlots();
       triggerCalc();
@@ -864,7 +894,7 @@ function applyBuild(result) {
   const cont = S.catalog.containers.find(c => c.id === contId);
   renderContainerInfo(cont);
 
-  S.build.slots = result.artifacts.map(a => ({ id: a.id, level: 'II' }));
+  S.build.slots = result.artifacts.map(a => ({ id: a.id, level: 15, quality: 100 }));
   const slots = cont?.slots || 0;
   while (S.build.slots.length < slots) S.build.slots.push(null);
 
