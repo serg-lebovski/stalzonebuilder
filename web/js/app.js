@@ -192,6 +192,7 @@ function makeSearchSel({ wrapId, displayId, dropId, searchId, listId,
       ? `<div class="ssel-item" data-id="">${emptyLabel}</div>` : '';
     html += items.map(it =>
       `<div class="ssel-item${currentId === it.id ? ' active' : ''}" data-id="${it.id}">
+        ${it.icon ? `<img class="ssel-item-icon" src="${it.icon}" alt="" onerror="this.hidden=true">` : ''}
         <span class="ssel-item-label">${it.label}</span>
         ${it.sub ? `<span class="ssel-item-sub">${it.sub}</span>` : ''}
       </div>`
@@ -252,6 +253,7 @@ function initBuildTab() {
       id:    a.id,
       label: a.name,
       sub:   a.weight ? a.weight + ' кг' : '',
+      icon:  a.icon_url,
     })),
     emptyLabel: '— Без костюма —',
     onSelect: id => {
@@ -272,6 +274,7 @@ function initBuildTab() {
       id:    c.id,
       label: c.name,
       sub:   `${c.slots} сл · ${c.efficiency_pct}%`,
+      icon:  c.icon_url,
     })),
     emptyLabel: null,
     onSelect: id => {
@@ -345,6 +348,7 @@ function renderSlots() {
     if (art) {
       div.innerHTML = `
         <button class="slot-remove" data-slot="${i}" title="Убрать">✕</button>
+        ${art.icon_url ? `<img class="slot-icon" src="${art.icon_url}" alt="" onerror="this.hidden=true">` : ''}
         <div class="slot-art-name">${art.name}</div>
         <div class="slot-art-stats">${artShortStats(art, getMode())}</div>`;
       div.querySelector('.slot-remove').addEventListener('click', e => {
@@ -503,8 +507,11 @@ function renderPickerList() {
       }).join('<br>');
     const dim = usedIds.has(a.id) ? ' style="opacity:.45"' : '';
     return `<div class="picker-item ${colorClass(a.color)}" data-id="${a.id}"${dim}>
-      <div class="picker-item-name">${a.name}</div>
-      <div class="picker-item-stats">${statsHtml}</div>
+      ${a.icon_url ? `<img class="picker-item-icon" src="${a.icon_url}" alt="" onerror="this.hidden=true">` : ''}
+      <div class="picker-item-body">
+        <div class="picker-item-name">${a.name}</div>
+        <div class="picker-item-stats">${statsHtml}</div>
+      </div>
     </div>`;
   }).join('') || '<div style="color:var(--text-dim);padding:20px;text-align:center">Ничего не найдено</div>';
 
@@ -565,6 +572,7 @@ function renderAddDropdown(q) {
       : type === 'container' ? 'Контейнер' : 'Костюм';
     return `<div class="inv-dd-item ${colorClass(item.color || 'DEFAULT')}"
               data-type="${type}" data-id="${item.id}">
+      ${item.icon_url ? `<img class="inv-dd-icon" src="${item.icon_url}" alt="" onerror="this.hidden=true">` : ''}
       <span class="inv-dd-name">${item.name}</span>
       <span class="inv-dd-cat">${typeLabel}</span>
     </div>`;
@@ -642,6 +650,7 @@ function renderInvList() {
 
       html += `<div class="inv-card ${colorClass(item.color || 'DEFAULT')}">
         <button class="inv-card-remove" data-type="${type}" data-id="${item.id}" title="Убрать">✕</button>
+        ${item.icon_url ? `<img class="inv-card-icon" src="${item.icon_url}" alt="" onerror="this.hidden=true">` : ''}
         <div class="inv-card-body">
           <div class="inv-card-name">${item.name}</div>
           <div class="inv-card-cat">${typeLabel}${item.weight ? ' · ' + item.weight + ' кг' : ''}</div>

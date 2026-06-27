@@ -7,6 +7,7 @@ from .models import Artifact, Container, Armor, StatDef, Catalog
 
 DB_ZIP_URL = 'https://github.com/EXBO-Studio/stalzone-database/archive/refs/heads/main.zip'
 ZIP_PREFIX = 'stalzone-database-main/'
+ICON_BASE  = 'https://raw.githubusercontent.com/EXBO-Studio/stalzone-database/main/global'
 
 BONUS_COLOR = '53C353'
 
@@ -52,7 +53,7 @@ def _all_elements(infoBlocks: list) -> list:
     return out
 
 
-def _parse_artifact(data: dict, stat_defs: dict) -> Artifact | None:
+def _parse_artifact(data: dict, stat_defs: dict, icon_url: str = '') -> Artifact | None:
     item_id = data.get('id', '')
     category = data.get('category', '')
     name = data.get('name', {}).get('lines', {}).get('ru', item_id)
@@ -85,10 +86,11 @@ def _parse_artifact(data: dict, stat_defs: dict) -> Artifact | None:
 
     if not props:
         return None
-    return Artifact(id=item_id, name=name, category=category, color=color, props=props)
+    return Artifact(id=item_id, name=name, category=category, color=color,
+                    props=props, icon_url=icon_url)
 
 
-def _parse_container(data: dict) -> Container | None:
+def _parse_container(data: dict, icon_url: str = '') -> Container | None:
     item_id = data.get('id', '')
     name = data.get('name', {}).get('lines', {}).get('ru', item_id)
     slots = 0
@@ -113,10 +115,11 @@ def _parse_container(data: dict) -> Container | None:
     if slots == 0:
         return None
     return Container(id=item_id, name=name, slots=slots, efficiency=efficiency,
-                     inner_protection=inner_protection, weight=weight)
+                     inner_protection=inner_protection, weight=weight,
+                     icon_url=icon_url)
 
 
-def _parse_armor(data: dict, stat_defs: dict) -> Armor | None:
+def _parse_armor(data: dict, stat_defs: dict, icon_url: str = '') -> Armor | None:
     item_id = data.get('id', '')
     category = data.get('category', '')
     name = data.get('name', {}).get('lines', {}).get('ru', item_id)
@@ -151,7 +154,7 @@ def _parse_armor(data: dict, stat_defs: dict) -> Armor | None:
     if not stats:
         return None
     return Armor(id=item_id, name=name, category=category, color=color,
-                 stats=stats, weight=weight)
+                 stats=stats, weight=weight, icon_url=icon_url)
 
 
 def load_catalog(progress_cb=None) -> Catalog:
@@ -186,6 +189,9 @@ def load_catalog(progress_cb=None) -> Catalog:
 
     for entry in listing:
         rel_path = entry.get('data', '').lstrip('/')
+        icon_path = entry.get('icon', '')
+        icon_url = (ICON_BASE + icon_path) if icon_path else ''
+
         zip_path = ZIP_PREFIX + 'global/' + rel_path
         try:
             with zf.open(zip_path) as f:
@@ -194,15 +200,15 @@ def load_catalog(progress_cb=None) -> Catalog:
             continue
 
         if rel_path.startswith('items/artefact/'):
-            obj = _parse_artifact(data, stat_defs)
+            obj = _parse_artifact(data, stat_defs, icon_url)
             if obj:
                 artifacts.append(obj)
-        elif rel_path.startswith('items/containers/'):
-            obj = _parse_container(data)
+        elif rel_path.startswith(('items/containers/', 'items/backpacks/')):
+            obj = _parse_container(data, icon_url)
             if obj:
                 containers.append(obj)
         elif rel_path.startswith('items/armor/'):
-            obj = _parse_armor(data, stat_defs)
+            obj = _parse_armor(data, stat_defs, icon_url)
             if obj:
                 armors.append(obj)
 

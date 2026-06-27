@@ -28,6 +28,7 @@ class Artifact:
     category: str
     color: str
     props: Dict[str, Tuple[float, float]]  # {stat_key: (min, max)}
+    icon_url: str = ''
 
     def avg_props(self) -> Dict[str, float]:
         return {k: (v[0] + v[1]) / 2 for k, v in self.props.items()}
@@ -41,6 +42,7 @@ class Artifact:
             'name': self.name,
             'category': self.category,
             'color': self.color,
+            'icon_url': self.icon_url,
             'props': {k: {'min': round(v[0], 4), 'max': round(v[1], 4)}
                       for k, v in self.props.items()},
         }
@@ -54,6 +56,7 @@ class Container:
     efficiency: float       # multiplier, e.g. 1.5 for 150%
     inner_protection: float # e.g. 95.0
     weight: float
+    icon_url: str = ''
 
     def to_dict(self):
         return {
@@ -64,6 +67,7 @@ class Container:
             'efficiency_pct': round(self.efficiency * 100, 1),
             'inner_protection': self.inner_protection,
             'weight': self.weight,
+            'icon_url': self.icon_url,
         }
 
 
@@ -75,6 +79,7 @@ class Armor:
     color: str
     stats: Dict[str, float]  # {stat_key: value}
     weight: float
+    icon_url: str = ''
 
     def to_dict(self):
         return {
@@ -82,6 +87,7 @@ class Armor:
             'name': self.name,
             'category': self.category,
             'color': self.color,
+            'icon_url': self.icon_url,
             'stats': {k: round(v, 4) for k, v in self.stats.items()},
             'weight': self.weight,
         }
