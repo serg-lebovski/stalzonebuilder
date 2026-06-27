@@ -206,6 +206,11 @@ def load_catalog(progress_cb=None) -> Catalog:
             if obj:
                 armors.append(obj)
 
+    # Живучесть — бонус (direction=1), даже если цвет в данных не зелёный
+    for sd in stat_defs.values():
+        if 'живучесть' in sd.name_ru.lower():
+            sd.direction = 1
+
     # Sort for consistent UI
     artifacts.sort(key=lambda a: (a.category, a.name))
     containers.sort(key=lambda c: (c.slots, c.name))

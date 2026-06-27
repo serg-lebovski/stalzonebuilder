@@ -14,14 +14,15 @@ def compute_effective_hp(
     max_hp: float = 100.0,
 ) -> float:
     """
-    Приведёнка = (Макс.ХП + Пулестойкость) × (1 + Живучесть% / 100)
+    Приведёнка = (Здоровье + Пулестойкость) × (1 + Живучесть)
 
-    Пулестойкость — stat key 'bullet_dmg_factor' (from armor + artifact bonuses).
-    Живучесть    — stats whose Russian name contains 'живучесть' (from artifacts).
+    Живучесть хранится как десятичная дробь (0.15 = +15%).
+    Пулестойкость — stat key 'bullet_dmg_factor' (от костюма + артефактов).
+    Живучесть    — все статы, в названии которых есть 'живучесть'.
     """
     bullet = total_stats.get('bullet_dmg_factor', 0.0)
     vitality = sum(total_stats.get(k, 0.0) for k in _vitality_keys(stat_defs))
-    return (max_hp + bullet) * (1.0 + vitality / 100.0)
+    return (max_hp + bullet) * (1.0 + vitality)
 
 
 def calculate_build(
