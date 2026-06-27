@@ -25,6 +25,18 @@ def compute_effective_hp(
     return (max_hp + bullet) * (1.0 + vitality)
 
 
+def _art_props(art: Artifact, level: str | None, mode: str) -> dict:
+    """Select artifact props by per-artifact level or fallback global mode."""
+    if level == 'I':
+        return {k: v[0] for k, v in art.props.items()}
+    if level == 'III':
+        return art.max_props()
+    if level == 'II':
+        return art.avg_props()
+    # fallback to global mode
+    return art.max_props() if mode == 'max' else art.avg_props()
+
+
 def calculate_build(
     armor: Optional[Armor],
     container: Optional[Container],
@@ -32,11 +44,13 @@ def calculate_build(
     stat_defs: dict,
     mode: str = 'avg',
     max_hp: float = 100.0,
+    artifact_levels: list[str] | None = None,
 ) -> dict:
     """
     Compute total stats and effective HP for a given build.
 
-    mode: 'avg' uses (min+max)/2, 'max' uses max value.
+    mode: global fallback ('avg'/'max') when artifact_levels not provided.
+    artifact_levels: per-artifact list of 'I'/'II'/'III'.
     Returns:
         {stats, effective_hp, meta}
     """
@@ -50,8 +64,9 @@ def calculate_build(
     slots = container.slots if container else 0
 
     chosen = artifacts[:slots]
-    for art in chosen:
-        props = art.max_props() if mode == 'max' else art.avg_props()
+    for i, art in enumerate(chosen):
+        level = artifact_levels[i] if artifact_levels and i < len(artifact_levels) else None
+        props = _art_props(art, level, mode)
         for k, v in props.items():
             totals[k] = totals.get(k, 0.0) + v * eff
 

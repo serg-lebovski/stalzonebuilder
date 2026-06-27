@@ -80,6 +80,7 @@ class Armor:
     stats: Dict[str, float]  # {stat_key: value}
     weight: float
     icon_url: str = ''
+    rank: str = ''
 
     def to_dict(self):
         return {
@@ -87,6 +88,7 @@ class Armor:
             'name': self.name,
             'category': self.category,
             'color': self.color,
+            'rank': self.rank,
             'icon_url': self.icon_url,
             'stats': {k: round(v, 4) for k, v in self.stats.items()},
             'weight': self.weight,

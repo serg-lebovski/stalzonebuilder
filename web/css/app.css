@@ -214,6 +214,33 @@ header {
 .slot-remove:hover { color: var(--red); background: rgba(239,83,80,.15); }
 .slot-icon { width: 38px; height: 38px; object-fit: contain; margin-bottom: 4px; }
 
+/* Per-slot artifact level selector */
+.slot-level-sel {
+  display: flex; gap: 2px; margin-top: 5px;
+  justify-content: center;
+}
+.slvl {
+  padding: 1px 5px; font-size: 10px; font-weight: 700;
+  background: none; border: 1px solid var(--border);
+  border-radius: 3px; color: var(--text-dim); cursor: pointer;
+  transition: background .1s, color .1s, border-color .1s;
+  line-height: 1.5;
+}
+.slvl:hover { border-color: var(--accent); color: var(--accent); }
+.slvl.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Rank badge in armor searchable select */
+.ssel-item-badge {
+  font-size: 10px; font-weight: 700; padding: 1px 5px;
+  border-radius: 3px; flex-shrink: 0; margin-left: 6px;
+}
+.badge-DEFAULT      { background: #3a3a3a; color: #aaa; }
+.badge-RANK_NEWBIE  { background: #1a3d1a; color: #6ebf6e; }
+.badge-RANK_STALKER { background: #0d2a42; color: #42a5f5; }
+.badge-RANK_VETERAN { background: #2d1a3d; color: #ab47bc; }
+.badge-RANK_MASTER  { background: #3d2a00; color: var(--accent); }
+.badge-RANK_LEGEND  { background: #3d0d0d; color: #ef5350; }
+
 .mode-row {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
   font-size: 12px; color: var(--text-dim);

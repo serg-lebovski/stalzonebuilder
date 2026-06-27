@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>StalZone Builder</title>
-  <link rel="stylesheet" href="/css/app.css?v=6">
+  <link rel="stylesheet" href="/css/app.css?v=7">
 </head>
 <body>
 
@@ -97,15 +97,9 @@
             <!-- slots rendered by JS -->
           </div>
           <div class="mode-row">
-            <label class="mode-label">Значение:</label>
-            <label class="radio-label">
-              <input type="radio" name="calc-mode" value="avg" checked> среднее
-            </label>
-            <label class="radio-label">
-              <input type="radio" name="calc-mode" value="max"> максимум
-            </label>
-            <label class="mode-label" style="margin-left:12px">Баз. ХП:</label>
+            <label class="mode-label">Баз. ХП:</label>
             <input type="number" id="max-hp-input" value="100" min="1" max="9999" step="1" class="hp-input">
+            <label class="mode-label" style="margin-left:12px;color:var(--text-dim);font-size:11px">Уровень арт. (I/II/III) — выбирается на каждом слоте</label>
           </div>
         </div>
 
@@ -211,6 +205,6 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=5"></script>
+<script src="/js/app.js?v=6"></script>
 </body>
 </html>

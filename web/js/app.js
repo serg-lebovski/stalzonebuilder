@@ -148,9 +148,9 @@ function colorClass(color) {
   return 'color-' + (color || 'DEFAULT');
 }
 
-function artShortStats(art, mode) {
+function artShortStats(art, level) {
   const sd = S.catalog.stat_defs;
-  const props = mode === 'max' ? maxProps(art) : avgProps(art);
+  const props = propsForLevel(art, level);
   return Object.entries(props)
     .filter(([k]) => sd[k])
     .slice(0, 3)
@@ -170,9 +170,19 @@ function maxProps(art) {
   for (const [k, r] of Object.entries(art.props)) out[k] = r.max;
   return out;
 }
+function minProps(art) {
+  const out = {};
+  for (const [k, r] of Object.entries(art.props)) out[k] = r.min;
+  return out;
+}
+function propsForLevel(art, level) {
+  if (level === 'I')   return minProps(art);
+  if (level === 'III') return maxProps(art);
+  return avgProps(art);
+}
 
 function getMode() {
-  return document.querySelector('input[name="calc-mode"]:checked')?.value || 'avg';
+  return document.querySelector('input[name="opt-mode"]:checked')?.value || 'avg';
 }
 
 /* ═══════════════════ SEARCHABLE SELECT ═══════════════════ */
@@ -194,6 +204,7 @@ function makeSearchSel({ wrapId, displayId, dropId, searchId, listId,
       `<div class="ssel-item${currentId === it.id ? ' active' : ''}" data-id="${it.id}">
         ${it.icon ? `<img class="ssel-item-icon" src="${it.icon}" alt="" onerror="this.hidden=true">` : ''}
         <span class="ssel-item-label">${it.label}</span>
+        ${it.badge ? `<span class="ssel-item-badge ${it.badgeCls || ''}">${it.badge}</span>` : ''}
         ${it.sub ? `<span class="ssel-item-sub">${it.sub}</span>` : ''}
       </div>`
     ).join('') || '<div class="ssel-empty">Ничего не найдено</div>';
@@ -250,10 +261,12 @@ function initBuildTab() {
     searchId:  'armor-ssel-search',
     listId:    'armor-ssel-list',
     getItems:  () => S.catalog.armors.map(a => ({
-      id:    a.id,
-      label: a.name,
-      sub:   a.weight ? a.weight + ' кг' : '',
-      icon:  a.icon_url,
+      id:       a.id,
+      label:    a.name,
+      sub:      a.weight ? a.weight + ' кг' : '',
+      icon:     a.icon_url,
+      badge:    a.rank || '',
+      badgeCls: 'badge-' + (a.color || 'DEFAULT'),
     })),
     emptyLabel: '— Без костюма —',
     onSelect: id => {
@@ -287,10 +300,6 @@ function initBuildTab() {
     },
   });
 
-  // Mode radio
-  document.querySelectorAll('input[name="calc-mode"]').forEach(r =>
-    r.addEventListener('change', () => { S.build.mode = r.value; triggerCalc(); })
-  );
   // Max HP input
   document.getElementById('max-hp-input').addEventListener('input', e => {
     S.build.maxHp = parseFloat(e.target.value) || 100;
@@ -340,8 +349,9 @@ function renderSlots() {
   const container = document.getElementById('artifact-slots');
   container.innerHTML = '';
   for (let i = 0; i < slots; i++) {
-    const artId = S.build.slots[i];
-    const art = artId ? S.catalog.artifacts.find(a => a.id === artId) : null;
+    const slotData = S.build.slots[i]; // {id, level} or null
+    const art = slotData ? S.catalog.artifacts.find(a => a.id === slotData.id) : null;
+    const level = slotData?.level || 'II';
     const div = document.createElement('div');
     div.className = 'slot ' + (art ? 'filled ' + colorClass(art.color) : '');
     div.dataset.slot = i;
@@ -350,12 +360,26 @@ function renderSlots() {
         <button class="slot-remove" data-slot="${i}" title="Убрать">✕</button>
         ${art.icon_url ? `<img class="slot-icon" src="${art.icon_url}" alt="" onerror="this.hidden=true">` : ''}
         <div class="slot-art-name">${art.name}</div>
-        <div class="slot-art-stats">${artShortStats(art, getMode())}</div>`;
+        <div class="slot-art-stats">${artShortStats(art, level)}</div>
+        <div class="slot-level-sel">
+          ${['I','II','III'].map(lvl =>
+            `<button class="slvl${level === lvl ? ' active' : ''}" data-slot="${i}" data-level="${lvl}">${lvl}</button>`
+          ).join('')}
+        </div>`;
       div.querySelector('.slot-remove').addEventListener('click', e => {
         e.stopPropagation();
         S.build.slots[parseInt(e.currentTarget.dataset.slot)] = null;
         renderSlots();
         triggerCalc();
+      });
+      div.querySelectorAll('.slvl').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const si = parseInt(btn.dataset.slot);
+          S.build.slots[si] = { id: S.build.slots[si].id, level: btn.dataset.level };
+          renderSlots();
+          triggerCalc();
+        });
       });
     } else {
       div.innerHTML = `<div class="slot-empty-icon">+</div><div class="slot-empty-text">Добавить<br>артефакт</div>`;
@@ -370,13 +394,13 @@ function renderSlots() {
 }
 
 async function triggerCalc() {
-  const artIds = S.build.slots.filter(Boolean);
+  const filled = S.build.slots.filter(Boolean); // [{id, level}]
   const body = {
-    armor_id:     S.build.armorId    || null,
-    container_id: S.build.containerId|| null,
-    artifact_ids: artIds,
-    mode:         S.build.mode,
-    max_hp:       S.build.maxHp,
+    armor_id:        S.build.armorId     || null,
+    container_id:    S.build.containerId || null,
+    artifact_ids:    filled.map(s => s.id),
+    artifact_levels: filled.map(s => s.level),
+    max_hp:          S.build.maxHp,
   };
   const result = await api.post('/api/calc', body);
   renderStats(result);
@@ -485,9 +509,8 @@ function catLabel(cat) {
 function renderPickerList() {
   const q = S.picker.search;
   const cat = S.picker.filter;
-  const mode = getMode();
   const sd = S.catalog.stat_defs;
-  const usedIds = new Set(S.build.slots.filter(Boolean));
+  const usedIds = new Set(S.build.slots.filter(Boolean).map(s => s.id));
 
   const items = S.catalog.artifacts.filter(a => {
     if (cat !== 'all' && a.category !== cat) return false;
@@ -497,7 +520,7 @@ function renderPickerList() {
 
   const list = document.getElementById('picker-list');
   list.innerHTML = items.map(a => {
-    const props = mode === 'max' ? maxProps(a) : avgProps(a);
+    const props = avgProps(a);
     const statsHtml = Object.entries(props)
       .filter(([k]) => sd[k])
       .map(([k, v]) => {
@@ -517,7 +540,7 @@ function renderPickerList() {
 
   list.querySelectorAll('.picker-item').forEach(el => {
     el.addEventListener('click', () => {
-      S.build.slots[S.picker.slot] = el.dataset.id;
+      S.build.slots[S.picker.slot] = { id: el.dataset.id, level: 'II' };
       closePicker();
       renderSlots();
       triggerCalc();
@@ -841,7 +864,7 @@ function applyBuild(result) {
   const cont = S.catalog.containers.find(c => c.id === contId);
   renderContainerInfo(cont);
 
-  S.build.slots = result.artifacts.map(a => a.id);
+  S.build.slots = result.artifacts.map(a => ({ id: a.id, level: 'II' }));
   const slots = cont?.slots || 0;
   while (S.build.slots.length < slots) S.build.slots.push(null);
 

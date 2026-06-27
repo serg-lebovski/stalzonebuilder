@@ -11,6 +11,16 @@ ICON_BASE  = 'https://raw.githubusercontent.com/EXBO-Studio/stalzone-database/ma
 
 BONUS_COLOR = '53C353'
 
+ARMOR_RANK_MAP = {
+    'DEFAULT':      'Отмычка',
+    'RANK_NEWBIE':  'Новичок',
+    'RANK_STALKER': 'Сталкер',
+    'RANK_VETERAN': 'Ветеран',
+    'RANK_MASTER':  'Мастер',
+    'RANK_LEGEND':  'Легенда',
+}
+RANK_ORDER = {k: i for i, k in enumerate(ARMOR_RANK_MAP)}
+
 # Container-specific field keys
 CONT_KEY_EFFICIENCY   = 'stalker.tooltip.backpack.stat_name.effectiveness'
 CONT_KEY_SLOTS        = 'stalker.tooltip.backpack.info.size'
@@ -153,8 +163,9 @@ def _parse_armor(data: dict, stat_defs: dict, icon_url: str = '') -> Armor | Non
 
     if not stats:
         return None
+    rank = ARMOR_RANK_MAP.get(color, color)
     return Armor(id=item_id, name=name, category=category, color=color,
-                 stats=stats, weight=weight, icon_url=icon_url)
+                 stats=stats, weight=weight, icon_url=icon_url, rank=rank)
 
 
 def load_catalog(progress_cb=None) -> Catalog:
@@ -220,7 +231,7 @@ def load_catalog(progress_cb=None) -> Catalog:
     # Sort for consistent UI
     artifacts.sort(key=lambda a: (a.category, a.name))
     containers.sort(key=lambda c: (c.slots, c.name))
-    armors.sort(key=lambda a: (a.category, a.name))
+    armors.sort(key=lambda a: (RANK_ORDER.get(a.color, 99), a.name))
 
     log(f'Готово: {len(artifacts)} артефактов, {len(containers)} контейнеров, {len(armors)} костюмов')
     return Catalog(artifacts=artifacts, containers=containers, armors=armors, stat_defs=stat_defs)
