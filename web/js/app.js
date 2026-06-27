@@ -439,72 +439,144 @@ function renderPickerList() {
 
 /* ═══════════════════ INVENTORY TAB ═══════════════════ */
 function initInventoryTab() {
-  document.getElementById('inv-search').addEventListener('input', e => renderInvList(e.target.value));
+  const input    = document.getElementById('inv-add-input');
+  const dropdown = document.getElementById('inv-add-dropdown');
+
+  input.addEventListener('input', () => renderAddDropdown(input.value.trim()));
+  input.addEventListener('focus', () => { if (input.value.trim()) renderAddDropdown(input.value.trim()); });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.inv-add-wrapper')) dropdown.hidden = true;
+  });
+
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      renderInvList(document.getElementById('inv-search').value);
+      renderInvList();
     });
   });
-  document.getElementById('save-inv-btn').addEventListener('click', saveInventory);
-  renderInvList('');
+
+  renderInvList();
 }
 
-function renderInvList(q) {
-  const filter = document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
+function renderAddDropdown(q) {
+  const dropdown = document.getElementById('inv-add-dropdown');
+  if (!q) { dropdown.hidden = true; return; }
+
   const ql = q.toLowerCase();
-  const sd = S.catalog.stat_defs;
+  const results = [
+    ...S.catalog.artifacts.map(a  => ({ type: 'artifact',  item: a })),
+    ...S.catalog.containers.map(c => ({ type: 'container', item: c })),
+    ...S.catalog.armors.map(a     => ({ type: 'armor',     item: a })),
+  ].filter(({ type, item }) =>
+    item.name.toLowerCase().includes(ql) && !isInInventory(type, item.id)
+  ).slice(0, 14);
+
+  if (!results.length) {
+    dropdown.innerHTML = '<div class="inv-dd-empty">Ничего не найдено</div>';
+    dropdown.hidden = false;
+    return;
+  }
+
+  dropdown.innerHTML = results.map(({ type, item }) => {
+    const typeLabel = type === 'artifact' ? catLabel(item.category)
+      : type === 'container' ? 'Контейнер' : 'Костюм';
+    return `<div class="inv-dd-item ${colorClass(item.color || 'DEFAULT')}"
+              data-type="${type}" data-id="${item.id}">
+      <span class="inv-dd-name">${item.name}</span>
+      <span class="inv-dd-cat">${typeLabel}</span>
+    </div>`;
+  }).join('');
+
+  dropdown.querySelectorAll('.inv-dd-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      addToInventory(el.dataset.type, el.dataset.id);
+      document.getElementById('inv-add-input').value = '';
+      dropdown.hidden = true;
+      renderInvList();
+      saveInventory();
+    });
+  });
+
+  dropdown.hidden = false;
+}
+
+function renderInvList() {
+  const filter = document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
+  const sd   = S.catalog.stat_defs;
   const list = document.getElementById('inv-list');
 
   const sections = [];
   if (filter === 'all' || filter === 'artifact') {
-    S.catalog.artifacts.filter(a => !ql || a.name.toLowerCase().includes(ql))
-      .forEach(a => sections.push({ type: 'artifact', item: a }));
+    const owned = S.inventory.artifact_ids
+      .map(id => S.catalog.artifacts.find(a => a.id === id)).filter(Boolean);
+    if (owned.length) sections.push({ type: 'artifact', label: 'Артефакты', items: owned });
   }
   if (filter === 'all' || filter === 'container') {
-    S.catalog.containers.filter(c => !ql || c.name.toLowerCase().includes(ql))
-      .forEach(c => sections.push({ type: 'container', item: c }));
+    const owned = S.inventory.container_ids
+      .map(id => S.catalog.containers.find(c => c.id === id)).filter(Boolean);
+    if (owned.length) sections.push({ type: 'container', label: 'Контейнеры', items: owned });
   }
   if (filter === 'all' || filter === 'armor') {
-    S.catalog.armors.filter(a => !ql || a.name.toLowerCase().includes(ql))
-      .forEach(a => sections.push({ type: 'armor', item: a }));
+    const owned = S.inventory.armor_ids
+      .map(id => S.catalog.armors.find(a => a.id === id)).filter(Boolean);
+    if (owned.length) sections.push({ type: 'armor', label: 'Костюмы', items: owned });
   }
 
-  list.innerHTML = sections.map(({ type, item }) => {
-    const sel = isInInventory(type, item.id);
-    let statsHtml = '';
-    if (type === 'artifact') {
-      const mode = getMode();
-      const props = mode === 'max' ? maxProps(item) : avgProps(item);
-      statsHtml = Object.entries(props).filter(([k]) => sd[k]).slice(0, 4)
-        .map(([k, v]) => {
-          const d = sd[k];
-          return `<span style="color:${d.direction===1&&v>0?'var(--green)':d.direction===-1&&v>0?'var(--red)':'var(--text-dim)'}">${fmtVal(v,d.unit,d.direction)} ${d.name_ru}</span>`;
-        }).join('<br>');
-    } else if (type === 'container') {
-      statsHtml = `Слоты: ${item.slots} · Эффект.: ${item.efficiency_pct}% · Защита: ${item.inner_protection}%`;
-    } else {
-      statsHtml = Object.entries(item.stats||{}).filter(([,v])=>v!==0).slice(0,4)
-        .map(([k,v]) => `${sd[k]?.name_ru||k}: ${v}`).join(' · ');
+  if (!sections.length) {
+    const anyOwned = S.inventory.artifact_ids.length ||
+                     S.inventory.container_ids.length ||
+                     S.inventory.armor_ids.length;
+    list.innerHTML = `<div class="inv-empty">${
+      anyOwned ? 'Нет предметов выбранного типа.'
+               : 'Инвентарь пуст.<br>Воспользуйтесь строкой поиска выше, чтобы добавить предметы.'
+    }</div>`;
+    return;
+  }
+
+  let html = '';
+  for (const { type, label, items } of sections) {
+    html += `<div class="inv-section-title">${label}<span class="inv-section-count">${items.length}</span></div>
+             <div class="inv-section-grid">`;
+    for (const item of items) {
+      let statsHtml = '';
+      if (type === 'artifact') {
+        statsHtml = Object.entries(avgProps(item)).filter(([k]) => sd[k]).slice(0, 4)
+          .map(([k, v]) => {
+            const d = sd[k];
+            const color = d.direction === 1 && v > 0 ? 'var(--green)'
+              : d.direction === -1 && v > 0 ? 'var(--red)' : 'var(--text-dim)';
+            return `<span style="color:${color}">${fmtVal(v, d.unit, d.direction)} ${d.name_ru}</span>`;
+          }).join('<br>');
+      } else if (type === 'container') {
+        statsHtml = `${item.slots} сл · ${item.efficiency_pct}% · защита ${item.inner_protection}%`;
+      } else {
+        statsHtml = Object.entries(item.stats || {}).filter(([, v]) => v !== 0).slice(0, 4)
+          .map(([k, v]) => `${sd[k]?.name_ru || k}: ${v}`).join(' · ');
+      }
+      const typeLabel = type === 'artifact' ? catLabel(item.category)
+        : type === 'container' ? 'Контейнер' : item.category.split('/').pop();
+
+      html += `<div class="inv-card ${colorClass(item.color || 'DEFAULT')}">
+        <button class="inv-card-remove" data-type="${type}" data-id="${item.id}" title="Убрать">✕</button>
+        <div class="inv-card-body">
+          <div class="inv-card-name">${item.name}</div>
+          <div class="inv-card-cat">${typeLabel}${item.weight ? ' · ' + item.weight + ' кг' : ''}</div>
+          <div class="inv-card-stats">${statsHtml}</div>
+        </div>
+      </div>`;
     }
-    const catLabel2 = type === 'artifact' ? catLabel(item.category)
-      : type === 'container' ? 'Контейнер' : item.category.split('/').pop();
+    html += '</div>';
+  }
+  list.innerHTML = html;
 
-    return `<div class="inv-card ${colorClass(item.color||'DEFAULT')} ${sel?'selected':''}" data-type="${type}" data-id="${item.id}">
-      <div class="inv-card-check">${sel ? '✓' : ''}</div>
-      <div class="inv-card-body">
-        <div class="inv-card-name">${item.name}</div>
-        <div class="inv-card-cat">${catLabel2}${item.weight ? ' · ' + item.weight + ' кг' : ''}</div>
-        <div class="inv-card-stats">${statsHtml}</div>
-      </div>
-    </div>`;
-  }).join('') || '<div style="color:var(--text-dim);padding:20px;text-align:center;grid-column:1/-1">Ничего не найдено</div>';
-
-  list.querySelectorAll('.inv-card').forEach(card => {
-    card.addEventListener('click', () => {
-      toggleInventory(card.dataset.type, card.dataset.id);
-      renderInvList(q);
+  list.querySelectorAll('.inv-card-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      removeFromInventory(btn.dataset.type, btn.dataset.id);
+      renderInvList();
+      saveInventory();
     });
   });
 }
@@ -514,11 +586,16 @@ function isInInventory(type, id) {
   return S.inventory[key].includes(id);
 }
 
-function toggleInventory(type, id) {
+function addToInventory(type, id) {
+  const key = type === 'artifact' ? 'artifact_ids' : type === 'container' ? 'container_ids' : 'armor_ids';
+  if (!S.inventory[key].includes(id)) S.inventory[key].push(id);
+}
+
+function removeFromInventory(type, id) {
   const key = type === 'artifact' ? 'artifact_ids' : type === 'container' ? 'container_ids' : 'armor_ids';
   const arr = S.inventory[key];
-  const idx = arr.indexOf(id);
-  if (idx === -1) arr.push(id); else arr.splice(idx, 1);
+  const i = arr.indexOf(id);
+  if (i !== -1) arr.splice(i, 1);
 }
 
 async function saveInventory() {

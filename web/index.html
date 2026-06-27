@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>StalZone Builder</title>
-  <link rel="stylesheet" href="/css/app.css?v=3">
+  <link rel="stylesheet" href="/css/app.css?v=4">
 </head>
 <body>
 
@@ -127,15 +127,19 @@
   <section id="tab-inventory" class="tab-content" hidden>
     <div class="inv-layout">
 
-      <div class="inv-header">
-        <input type="search" id="inv-search" placeholder="Поиск...">
+      <div class="inv-add-bar">
+        <div class="inv-add-wrapper">
+          <input type="search" id="inv-add-input"
+                 placeholder="🔍 Добавить предмет в инвентарь..."
+                 autocomplete="off">
+          <div id="inv-add-dropdown" class="inv-add-dropdown" hidden></div>
+        </div>
         <div class="inv-filters">
           <button class="filter-btn active" data-filter="all">Все</button>
           <button class="filter-btn" data-filter="artifact">Артефакты</button>
           <button class="filter-btn" data-filter="container">Контейнеры</button>
           <button class="filter-btn" data-filter="armor">Костюмы</button>
         </div>
-        <button class="btn-save" id="save-inv-btn">💾 Сохранить</button>
         <span id="inv-save-status" class="save-status"></span>
       </div>
 
@@ -199,6 +203,6 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=2"></script>
+<script src="/js/app.js?v=3"></script>
 </body>
 </html>
